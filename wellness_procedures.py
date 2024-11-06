@@ -1,213 +1,213 @@
 import pandas as pd
-import tkinter as tk  # GUI library for desktop application
-from tkinter import filedialog
 import pdfplumber
 import re
+from datetime import datetime, timedelta
 import matplotlib.pyplot as plt
-from datetime import datetime
+import tkinter as tk
+from tkinter import filedialog
 
-# Load baseline data from CSV
+#%% Base data setup
+# Load baseline data containing items/services offered by the hospital
 file_path = 'E:/NJENGA/Downloads/synthea_sample_data_csv_latest/procedures.csv'
 Base_data = pd.read_csv(file_path)
 
-# Dropping unnecessary columns
-Base_data = Base_data.drop(
-    ['START', 'STOP', 'PATIENT', 'ENCOUNTER', 'SYSTEM', 'CODE', 'REASONCODE', 'REASONDESCRIPTION'], axis=1)
-
-# Data cleaning: removing duplicates
-initial_rows = len(Base_data)
-print(f"Initial rows: {initial_rows}")
+#%% Data cleaning
+# Cleans and prepares baseline data by dropping unnecessary columns,
+# removing duplicates, renaming columns, and formatting data types.
+Base_data = Base_data.drop(['START', 'STOP', 'PATIENT', 'ENCOUNTER', 'SYSTEM', 'CODE', 'REASONCODE', 'REASONDESCRIPTION'], axis=1)
 Base_data = Base_data.drop_duplicates(subset='DESCRIPTION', keep='first')
-
-# Aggregate the base costs grouped by DESCRIPTION
-Base_data_aggregated = Base_data.groupby('DESCRIPTION', as_index=False).agg({'BASE_COST': 'mean'})
-
-# Rename columns
 Base_data = Base_data.rename(columns={'DESCRIPTION': 'WELLNESS_HOSPITAL PROCEDURE SERVICES'})
-
-# Strip spaces from string cells
 Base_data['WELLNESS_HOSPITAL PROCEDURE SERVICES'] = Base_data['WELLNESS_HOSPITAL PROCEDURE SERVICES'].str.strip()
+Base_data['BASE_COST'] = Base_data['BASE_COST'].astype(float)
 
-# Convert BASE_COST to currency format
-Base_data['BASE_COST'] = Base_data['BASE_COST'].apply(lambda x: f"${x:.2f}")
-
-# Remove "(procedure)" from each service description
-Base_data['WELLNESS_HOSPITAL PROCEDURE SERVICES'] = Base_data['WELLNESS_HOSPITAL PROCEDURE SERVICES'].str.replace(
-    r"\s*\(procedure\)$", "", regex=True)
-
-print(f"Data after cleaning:\n{Base_data}")
-
-
-# Function to upload file
+#%% File upload
 def upload_file():
+    """Open a dialog to upload a PDF file and return the file path."""
     root = tk.Tk()
     root.withdraw()
-    files_path = filedialog.askopenfilename(title="Select the invoice")
-    return files_path
+    file_path = filedialog.askopenfilename(title="Select the invoice")
+    return file_path
 
+#%% Invoice validation
+def check_mandatory_fields(invoice_text):
+    """
+    Validates mandatory fields in the invoice text.
+    Ensures that fields like Invoice No, Policy Number, Bill To, Patient Name, and Date are present and correctly formatted.
 
+    Parameters:
+    invoice_text (str): Extracted text from the invoice.
+
+    Returns:
+    list: A list of reasons for rejection if mandatory fields are missing or invalid.
+    """
+    reasons = []
+    required_fields = {
+        "Invoice No": r"Invoice No:\s*([A-Za-z0-9]+)",
+        "Policy Number": r"[Pp]olicy\s*[Nn]umber:\s*([\w\-]+)",
+        "Bill to": r"Bill to:\s*(.*)",
+        "Patient Name": r"Patient Name:\s*(.*)",
+        "Date": r"Date:\s*(\d{1,2}\s\w+,\s\d{4})"
+    }
+
+    for field, pattern in required_fields.items():
+        match = re.search(pattern, invoice_text, re.IGNORECASE)
+        if not match:
+            reasons.append(f"Missing field: {field}")
+        elif field == "Date":
+            try:
+                invoice_date = datetime.strptime(match.group(1), "%d %B, %Y")
+                print(f"Extracted Invoice Date: {invoice_date}")
+
+                if invoice_date > datetime.now():
+                    reasons.append("Invoice date cannot be in the future")
+                    break
+
+                three_months_ago = datetime.now() - timedelta(days=90)
+                if invoice_date < three_months_ago:
+                    reasons.append("Invoice date is older than 3 months")
+            except ValueError:
+                reasons.append("Invalid date format (expected format: 'DD Month, YYYY')")
+
+    return reasons
+
+#%% Main extraction and validation
 selected_file = upload_file()
-extracted_data = []
-print(f"You selected: {selected_file}")
-
-# Extracting text from the uploaded PDF file
 try:
     with pdfplumber.open(selected_file) as pdf:
+        invoice_text = "\n".join([page.extract_text() for page in pdf.pages if page.extract_text()])
+        print("Extracted Text:", invoice_text)
+
+    # Run the mandatory field checks
+    reasons_for_rejection = check_mandatory_fields(invoice_text)
+    if reasons_for_rejection:
+        print("Mandatory field check failed with the following reasons:")
+        for reason in reasons_for_rejection:
+            print("-", reason)
+    else:
+        print("Mandatory field check passed. Proceeding with item-level approval...")
+
+except Exception as e:
+    print(f"Error extracting text from PDF: {e}")
+
+#%% Data extraction from PDF
+def extracted_pdf_data(pdf_path):
+    """
+    Extracts item descriptions, prices, and amounts from the PDF.
+
+    Parameters:
+    pdf_path (str): The file path of the PDF invoice.
+
+    Returns:
+    pd.DataFrame: A dataframe containing Description, Price, and Amount columns.
+    """
+    extracted_data = []
+    with pdfplumber.open(pdf_path) as pdf:
         for page in pdf.pages:
             text = page.extract_text()
-            if text:  # Check if text extraction was successful
+            if text:
                 lines = text.split('\n')
-                print(text)
                 for line in lines:
-                    # Improved regex pattern to capture description, price, and amount
                     match = re.match(r'^\d+\.\s+([A-Za-z0-9\s()]+)\s+\$?([\d,.]+)\s+\$?([\d,.]+)', line)
                     if match:
                         description = match.group(1).strip()
                         price = float(match.group(2).replace(',', ''))
                         amount = float(match.group(3).replace(',', ''))
                         extracted_data.append([description, price, amount])
-            else:
-                print("No text extracted from this page.")
+    return pd.DataFrame(extracted_data, columns=["Description", "Price", "Amount"])
 
-    # Create the DataFrame
-    invoice_DataFrame = pd.DataFrame(extracted_data, columns=["Description", "Price", "Amount"])
-    print(invoice_DataFrame)
+#%% Item comparison with baseline
+def compare_with_baseline(df, baseline):
+    """
+    Compares each item in the invoice with the baseline data to categorize as Legit, Risk, or Fraud.
 
-except Exception as e:
-    print(f"Error extracting text from PDF: {e}")
+    Parameters:
+    df (pd.DataFrame): Dataframe containing invoice items and prices.
+    baseline (pd.DataFrame): Baseline data with standard procedure names and base costs.
 
-
-# Approval/authentication of the invoices
-def approve_invoice(invoice):
-    reasons = []
-
-    try:
-        # Mandatory fields check
-        mandatory_fields = ['Invoice Number', 'Description', 'Price', 'Date', 'Policy Number', 'Patient Name', 'Status']
-        for field in mandatory_fields:
-            if field not in invoice or pd.isnull(invoice[field]) or invoice[field] == '':
-                reasons.append(f"Missing mandatory field: {field}")
-
-        # Ensure price is a positive number
-        if invoice['Price'] <= 0:
-            reasons.append(f"invalid Price: Must be a positive number")
-
-            # Check if the invoice date is within a valid format and range
-        date_str = invoice.get('Date', '')
-        try:
-            invoice_date = datetime.strptime(date_str, "%d %B, %Y")
-            if (datetime.now() - invoice_date).days > 90:  # 90 days = approx. 3 months
-                reasons.append("Invoice Date: older than 3 months")
-        except ValueError:
-            reasons.append(f"Invalid Date format")
-
-        # Only process invoices with "Approved" status
-        if invoice['Status'] != 'Approved':
-            reasons.append(f"Status not 'Approved'")
-
-        # return approval status and reasons
-        if reasons:
-            return False, reasons  # not approved with reasons
-        else:
-            return True, []  # Approved, no issues
-
-    except Exception as e:
-        print(f"Error in invoice approval: {e}")
-        return False, [f"Unexpected error: {e}"]  # Capture unexpected errors
-
-
-# Check if each row in the invoice DataFrame is approved
-invoice_DataFrame['Approved'] = invoice_DataFrame.apply(approve_invoice, axis=1)
-
-# Filter only the approved invoices
-approved_invoices = invoice_DataFrame[invoice_DataFrame['Approved'] == True]
-if approved_invoices.empty:
-    print("No approved invoices to process.")
-else:
-    # Proceed with comparison for approved invoices only
-    baseline_df = Base_data.copy()
-    baseline_df['BASE_COST'] = baseline_df['BASE_COST'].replace({'\$': '', '': ''}, regex=True).astype(float)
-
-    # Clean the procedure names in the approved invoice DataFrame
-    approved_invoices['Description'] = approved_invoices['Description'].str.replace(r'\s*\(procedure\)', '', regex=True)
-
-    # List to store comparison results
-    comparison_results = []
-
-    # Loop through each item in the approved invoices DataFrame
-    for index, row in approved_invoices.iterrows():
+    Returns:
+    pd.DataFrame: Dataframe with additional columns for Base Cost and Status.
+    """
+    results = []
+    for _, row in df.iterrows():
         procedure = row["Description"]
         invoice_price = row["Price"]
-
-        # Find matching procedure in the baseline data
-        baseline_match = baseline_df[baseline_df["WELLNESS_HOSPITAL PROCEDURE SERVICES"] == procedure]
-
-        # Default value for items not found
+        baseline_match = baseline[baseline["WELLNESS_HOSPITAL PROCEDURE SERVICES"] == procedure]
         label = "Unknown Item"
+        base_cost = None
 
         if not baseline_match.empty:
             base_cost = baseline_match.iloc[0]["BASE_COST"]
 
-            # Compare prices according to the criteria
+            # Categorize based on comparison of invoice price to base cost
             if invoice_price == base_cost:
                 label = "Legit"
-            elif invoice_price >= base_cost + 300:
+            elif invoice_price > base_cost + 500:
                 label = "Risk"
             elif invoice_price > base_cost:
                 label = "Fraud"
             else:
-                label = "Unknown"  # To catch any unexpected values
+                label = "Unknown"
 
-            # Append results with the label and cost details
-            comparison_results.append({
-                "Description": procedure,
-                "Invoice Price": invoice_price,
-                "Base Cost": base_cost,
-                "Status": label
-            })
-        else:
-            # If the procedure is not found in baseline data, label as "Unknown Item"
-            comparison_results.append({
-                "Description": procedure,
-                "Invoice Price": invoice_price,
-                "Base Cost": None,
-                "Status": label
-            })
+        results.append({
+            "Description": procedure,
+            "Invoice Price": invoice_price,
+            "Base Cost": base_cost,
+            "Status": label
+        })
+    return pd.DataFrame(results)
 
-    # Convert comparison results to a DataFrame
-    comparison_df = pd.DataFrame(comparison_results)
+#%% Display results in terminal
+def display_results(df):
+    """
+    Prints each item's description, base cost, invoice price, and fraud classification in the terminal.
 
-    # Display the comparison results
-    print(comparison_df)
+    Parameters:
+    df (pd.DataFrame): Dataframe containing items with Invoice Price, Base Cost, and Status.
+    """
+    print("\nInvoice Item Classification Report:")
+    print("-" * 50)
+    for _, row in df.iterrows():
+        description = row["Description"]
+        invoice_price = row["Invoice Price"]
+        base_cost = row["Base Cost"]
+        status = row["Status"]
 
-    # Color code categorization for visualization
-    report_df = comparison_df[comparison_df['Status'].isin(['Legit', 'Fraud', 'Risk'])]
+        print(f"Description: {description}")
+        print(f"Base Cost: ${base_cost}")
+        print(f"Invoice Price: ${invoice_price}")
+        print(f"Status: {status}")
+        print("-" * 50)  # number of hyphens
 
 
-    # Function to assign colors based on the status
+#%% Output the results to an Excel file
+def save_to_excel(df, filename='fraud_detection_report.xlsx'):
+    # Save the results DataFrame to an Excel file
+    df.to_excel(filename, index=False)
+    print(f"Results have been saved to {filename}")
+    save_to_excel(comparison_df, filename='fraud_detection_report.xlsx')
+
+#%% fraud categorization(color coded) will be viewed in plot form
+# Visualization
+# each item/procedure of the invoice will have its fraud category
+def visualize_results(df):
     def assign_color(status):
-        if status == 'Legit':
-            return 'green'
-        elif status == 'Fraud':
-            return 'orange'
-        elif status == 'Risk':
-            return 'red'
-        return 'gray'  # Default color for anything else
-
-
-    # Color categorization
-    report_df['Color'] = report_df['Status'].apply(assign_color)
-
-    # Bar plot for visualization
+        return {'Legit': 'green', 'Risk': 'red', 'Fraud': 'orange', 'Unknown': 'gray'}.get(status, 'gray')
+    df['Color'] = df['Status'].apply(assign_color)
     plt.figure(figsize=(10, 6))
-    plt.barh(report_df['Description'], report_df['Invoice Price'], color=report_df['Color'])
+    plt.barh(df['Description'], df['Invoice Price'], color=df['Color'])
     plt.xlabel('Invoice Price ($)')
     plt.title('Invoice Price Comparison with Status Categorization')
-    plt.axvline(0, color='black', linewidth=0.5)  # Adding a line at x=0 for reference
-
-    # Adding text labels on the bars
-    for index, value in enumerate(report_df['Invoice Price']):
+    for index, value in enumerate(df['Invoice Price']):
         plt.text(value + 1, index, f"{value:.2f}", va='center')
-
     plt.tight_layout()
     plt.show()
+
+#%% Execution
+# Extract data and run the baseline comparison
+invoice_df = extracted_pdf_data(selected_file)
+comparison_df = compare_with_baseline(invoice_df, Base_data)
+display_results(comparison_df)
+visualize_results(comparison_df)
+
+
+
