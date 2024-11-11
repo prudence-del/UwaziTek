@@ -25,6 +25,7 @@ Base_data = Base_data.drop(
     ['START', 'STOP', 'PATIENT', 'ENCOUNTER', 'SYSTEM', 'CODE', 'REASONCODE', 'REASONDESCRIPTION'], axis=1)
 # columns left
 print(Base_data.columns)
+
 # drop duplicates (if service and cost are identical)
 # keep the first occurrence
 Base_data = Base_data.drop_duplicates(subset=['DESCRIPTION', 'BASE_COST'], keep='first')
