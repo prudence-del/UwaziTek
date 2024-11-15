@@ -7,17 +7,22 @@ from datetime import datetime, timedelta
 import re
 from openpyxl.workbook import Workbook
 from openpyxl.styles import PatternFill
+from fuzzywuzzy import process
+import json
 
 #%% Base data setup
 # loading data with services offered in the hospital and their cost
-file_path = 'E:/NJENGA/Downloads/synthea_sample_data_csv_latest/procedures.csv'
-Base_data = pd.read_csv(file_path)
+Procedure_file_path = 'E:/NJENGA/Downloads/synthea_sample_data_csv_latest/procedures.csv'
+Medication_file_path = 'E:/NJENGA/Downloads/synthea_sample_data_csv_latest/medications.csv'
+Base_data = pd.read_csv(Procedure_file_path)
+medication_data = pd.read_csv(Medication_file_path)
 # reading the first 5 rows of the data
 print(Base_data.head(5))
 # detailed info about the data
 print(Base_data.info())
 
 #%% data cleaning
+# procedure base data cleaning
 # dropping unnecessary columns
 Base_data = Base_data.drop(
     ['START', 'STOP', 'PATIENT', 'ENCOUNTER', 'SYSTEM', 'CODE', 'REASONCODE', 'REASONDESCRIPTION'], axis=1)
@@ -42,14 +47,54 @@ output_file_name = 'Base_data_report.xlsx'
 Base_data.to_excel(output_file_name, index=False)
 print(f"Report successfully saved to the current directory as {output_file_name}\n")
 
+# medication base data cleaning
+medication_data = medication_data.drop(
+    ['START', 'STOP', 'PATIENT', 'PAYER', 'ENCOUNTER', 'CODE', 'PAYER_COVERAGE',
+     'DISPENSES', 'TOTALCOST', 'REASONCODE', 'REASONDESCRIPTION'], axis=1)
+# printing the first 5 rows after dropping the columns
+print(medication_data.head(5))
+
+# convert the description column to lower case to avoid retaining same medications
+medication_data['DESCRIPTION'] = medication_data['DESCRIPTION'].str.lower()
+
+# dropping duplicates
+# count of the initial rows
+initial_rows = len(medication_data)
+
+# remaining rows after duplicates dropped
+final_rows = medication_data.drop_duplicates(subset=['DESCRIPTION', 'BASE_COST'], keep='first')
+final_rows = final_rows.shape[0]
+
+# remaining rows
+dropped_rows = initial_rows - final_rows
+print(f"dropped duplicates rows: {dropped_rows}")
+
+# remaining rows (will act as a base medication data)
+print(f"remaining rows: {final_rows}")
+
+# renaming columns
+medication_data = medication_data.rename(columns={'DESCRIPTION': 'Wellness Medication'})
+print(medication_data.columns)
+
+# calculation of the mean cost of same medication names with different cost
+medication_data = medication_data.groupby('Wellness Medication', as_index=False).agg({'BASE_COST': 'mean'})
+
+# converting cost column to 2 decimal places
+medication_data['BASE_COST'] = medication_data['BASE_COST'].map(lambda x: f"{x:.2f}")
+
+# saving the output as an Excel file
+report_file_name = 'medication_base_report.xlsx'
+medication_data.to_excel(report_file_name, index=False)
+print(f"report saved successfully: {report_file_name}")
+
 
 #%% Invoice upload, text extract, image extract, convert text to data frame
 # invoice upload
 def upload_file():
     root = tk.Tk()
     root.withdraw()
-    file_path = filedialog.askopenfilename(title="Select invoice")
-    return file_path
+    invoice_file_path = filedialog.askopenfilename(title="Select invoice")
+    return invoice_file_path
 
 
 # Function to clean up invoice text
@@ -128,6 +173,7 @@ def check_mandatory_fields(invoice_text):
 
     }
 
+
     for field in mandatory_fields:
         pattern = patterns.get(field, None)
         if pattern:
@@ -159,7 +205,7 @@ def check_mandatory_fields(invoice_text):
 
 
 def extract_invoice_items(invoice_text):
-    item_pattern = item_pattern = r"\d+\.\s+([A-Za-z0-9\s\(\)\-]+)\s+\$([\d,]+(?:\.\d{1,2})?)"
+    item_pattern = item_pattern = r"\d+\.\s+((?:\([A-Za-z0-9\s]+\)\s+)?[A-Za-z0-9\s/]+(?:\(\d+\s+[A-Za-z]+\))?)\s+\$(\d+[\.,]?\d{1,2})"
 
     items = []
     matches = re.findall(item_pattern, invoice_text)
@@ -208,6 +254,7 @@ def process_invoice(pdf_file_path):
 
 # data after cleaning
 base_data = pd.read_excel("Base_data_report.xlsx")
+medication_data = pd.read_excel("medication_base_report.xlsx")
 
 
 # for normalizing text to ensure consistence in formating
@@ -216,15 +263,22 @@ def normalize_description(desc):
 
 
 base_data['Normalized DESCRIPTION'] = base_data['Services provided at Wellness Hospital'].apply(normalize_description)
+medication_data['Normalized DESCRIPTION'] = medication_data['Wellness Medication'].apply(normalize_description)
 
 
 #%% comparison of the invoice items and their prices with that of the base cost
 # fraud detection and categorization
 # different colors depending on the extent of fraud.
 
-def compare_invoice_with_base(invoice_items, hospital_base_data):
+def compare_invoice_with_base(invoice_items, hospital_base_data, medication_base_data):
+    # Normalize the DESCRIPTION column for both datasets if not already done
     if 'Normalized DESCRIPTION' not in hospital_base_data.columns:
-        hospital_base_data['Normalized DESCRIPTION'] = hospital_base_data['DESCRIPTION'].apply(normalize_description)
+        hospital_base_data['Normalized DESCRIPTION'] = (hospital_base_data['DESCRIPTION'].apply
+                (normalize_description))
+
+    if 'Normalized DESCRIPTION' not in medication_base_data.columns:
+        medication_base_data['Normalized DESCRIPTION'] = medication_base_data['DESCRIPTION'].apply(
+            normalize_description)
 
     comparison_results = []
     unmatched_items = []
@@ -235,15 +289,24 @@ def compare_invoice_with_base(invoice_items, hospital_base_data):
         description = normalize_description(item['DESCRIPTION'])
         invoice_cost = item['AMOUNT']
 
-        # Locate the base cost row in the hospital data with normalized description
-        base_row = hospital_base_data[hospital_base_data['Normalized DESCRIPTION'] == description]
+        # Check if the item is a medication or a procedure
+        if 'medication' in description.lower():  # You can refine this check
+            base_data = medication_base_data
+            is_medication = True
+        else:
+            base_data = hospital_base_data
+            is_medication = False
 
-        if base_row.empty:
-            # Attempt partial matching for descriptions not found in base data
-            partial_match = hospital_base_data[
-                hospital_base_data['Normalized DESCRIPTION'].str.contains(description.split()[0], na=False)]
-            if not partial_match.empty:
-                base_row = partial_match.iloc[[0]]  # Pick the first partial match
+        base_descriptions = base_data['Normalized DESCRIPTION'].tolist()
+        match = process.extractOne(description, base_descriptions)
+        # Retrieve base row based on the description
+        if match:
+            # Retrieve base row based on the best match
+            base_row = base_data[base_data['Normalized DESCRIPTION'] == match[0]]
+        else:
+            base_row = pd.DataFrame()  # If no match is found
+        print(f"Invoice item description: {description}")
+        print(f"Base data item descriptions:\n{base_data['Normalized DESCRIPTION'].head()}")
 
         if base_row.empty:
             # If service is not found in the base data
@@ -255,30 +318,40 @@ def compare_invoice_with_base(invoice_items, hospital_base_data):
                 'Price Difference': None,
                 'Fraud Category': "Service not found in base data"
             })
-        else:
+            continue
+
             # Base cost retrieved
-            hospital_base_cost = float(base_row['BASE_COST'].values[0])
-            price_difference = invoice_cost - hospital_base_cost
-            price_difference = round(price_difference, 2)  # 2 decimal places
 
-            # Determine fraud category based on the price difference
-            if invoice_cost == hospital_base_cost or (
-                    invoice_cost > hospital_base_cost and (invoice_cost - hospital_base_cost) <= 100):
+        base_cost = float(base_row['BASE_COST'].values[0])
+        price_difference = invoice_cost - base_cost
+        price_difference = round(price_difference, 2)  # 2 decimal places
+
+        # Determine fraud category based on the price difference for both procedures and medications
+        if is_medication:
+            # Adjust thresholds for medication (example values)
+            if invoice_cost == base_cost or (invoice_cost > base_cost and (invoice_cost - base_cost) <= 20):
                 fraud_category = "Legitimate"
-
-            elif invoice_cost > hospital_base_cost:
-                fraud_category = "Risk" if (invoice_cost - hospital_base_cost) <= 3000 else "Fraud"
+            elif invoice_cost > base_cost:
+                fraud_category = "Risk" if (invoice_cost - base_cost) <= 200 else "Fraud"
+            else:
+                fraud_category = "Potential Underreporting"
+        else:
+            # Hospital procedure fraud categorization logic
+            if invoice_cost == base_cost or (invoice_cost > base_cost and (invoice_cost - base_cost) <= 100):
+                fraud_category = "Legitimate"
+            elif invoice_cost > base_cost:
+                fraud_category = "Risk" if (invoice_cost - base_cost) <= 3000 else "Fraud"
             else:
                 fraud_category = "Potential Underreporting"
 
-            # Append result with the new price difference column
-            comparison_results.append({
-                'Description': item['DESCRIPTION'],
-                'Invoice Cost': invoice_cost,
-                'Base Cost': hospital_base_cost,
-                'Price Difference': price_difference,
-                'Fraud Category': fraud_category
-            })
+        # Append result with the new price difference column
+        comparison_results.append({
+            'Description': item['DESCRIPTION'],
+            'Invoice Cost': invoice_cost,
+            'Base Cost': base_cost,
+            'Price Difference': price_difference,
+            'Fraud Category': fraud_category
+        })
 
     # Add summary row for total invoice amount after the loop
     total_row = {
@@ -301,9 +374,10 @@ def compare_invoice_with_base(invoice_items, hospital_base_data):
 
     #%% generation of an Excel report
     # each item is highlighted and color-coded categorized
-def generate_combined_report(fraud_results, metadata):
 
-        """
+
+def generate_combined_report(fraud_results, metadata):
+    """
         Generates a fraud detection report with metadata and fraud categories.
 
         Parameters:
@@ -311,81 +385,104 @@ def generate_combined_report(fraud_results, metadata):
             metadata (dict): A dictionary containing metadata about the invoice.
         """
 
-        # Clean metadata
-        metadata = {key: value.replace("\n", " ") if isinstance(value, str) else value for key, value in
-                    metadata.items()}
+    # Clean metadata
+    metadata = {key: value.replace("\n", " ") if isinstance(value, str) else value for key, value in
+                metadata.items()}
 
-        # Validate and clean fraud_results
-        if not isinstance(fraud_results, list):
-            print("Fraud results are not in a list format.")
-            return
-        fraud_results = [result for result in fraud_results if isinstance(result, dict)]
+    # Validate and clean fraud_results
+    if not isinstance(fraud_results, list):
+        print("Fraud results are not in a list format.")
+        return
+    fraud_results = [result for result in fraud_results if isinstance(result, dict)]
 
-        # Check for valid data
-        if not fraud_results:
-            print("No valid fraud detection results to process.")
-            return
+    # Check for valid data
+    if not fraud_results:
+        print("No valid fraud detection results to process.")
+        return
 
-        # Create Excel workbook
-        wb = Workbook()
-        ws = wb.active
-        ws.title = "Fraud Detection Report"
+    # Create Excel workbook
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Fraud Detection Report"
 
-        # Add metadata
-        metadata_start_row = 1
-        metadata_fields = [
-            ("Hospital Name", metadata.get("Hospital Name", "N/A")),
-            ("Bank Name", metadata.get("Bank Name", "N/A")),
-            ("Bank Account", metadata.get("Bank Account", "N/A")),
-            ("Patient Name", metadata.get("Patient Name", "N/A")),
-            ("Policy Number", metadata.get("policy Number", "N/A")),
-            ("Invoice Number", metadata.get("Invoice No", "N/A")),
-        ]
+    # Add metadata
+    metadata_start_row = 1
+    metadata_fields = [
+        ("Hospital Name", metadata.get("Hospital Name", "N/A")),
+        ("Bank Name", metadata.get("Bank Name", "N/A")),
+        ("Bank Account", metadata.get("Bank Account", "N/A")),
+        ("Patient Name", metadata.get("Patient Name", "N/A")),
+        ("Policy Number", metadata.get("policy Number", "N/A")),
+        ("Invoice Number", metadata.get("Invoice No", "N/A")),
+    ]
 
-        for idx, (label, value) in enumerate(metadata_fields):
-            ws[f"A{metadata_start_row + idx}"] = f"{label}:"
-            ws[f"B{metadata_start_row + idx}"] = value
 
-        # Add fraud results
-        metadata_end_row = metadata_start_row + len(metadata_fields) + 1
-        headers = ["Description", "Invoice Cost", "Base Cost", "Price Difference", "Fraud Category"]
-        for col_idx, header in enumerate(headers, start=1):
-            ws.cell(row=metadata_end_row, column=col_idx, value=header)
+    for idx, (label, value) in enumerate(metadata_fields):
+        ws[f"A{metadata_start_row + idx}"] = f"{label}:"
+        ws[f"B{metadata_start_row + idx}"] = value
 
-        # Define color coding
-        colors = {
-            "Legitimate": "00FF00",
-            "Risk": "FFA500",
-            "Fraud": "FF0000",
-            "Service not found in base data": "FFFF00"
-        }
+    # Add fraud results
+    metadata_end_row = metadata_start_row + len(metadata_fields) + 1
+    headers = ["Description", "Invoice Cost", "Base Cost", "Price Difference", "Fraud Category"]
+    for col_idx, header in enumerate(headers, start=1):
+        ws.cell(row=metadata_end_row, column=col_idx, value=header)
 
-        # Populate fraud results
-        for row_idx, result in enumerate(fraud_results, start=metadata_end_row + 1):
-            ws.cell(row=row_idx, column=1, value=result.get("Description", "N/A"))
-            ws.cell(row=row_idx, column=2, value=result.get("Invoice Cost", "N/A"))
-            ws.cell(row=row_idx, column=3, value=result.get("Base Cost", "N/A"))
-            ws.cell(row=row_idx, column=4, value=result.get("Price Difference", "N/A"))
-            fraud_category = result.get("Fraud Category", "Unknown")
-            ws.cell(row=row_idx, column=5, value=fraud_category)
+    # Define color coding
+    colors = {
+        "Legitimate": "00FF00",
+        "Risk": "FFA500",
+        "Fraud": "FF0000",
+        "Service not found in base data": "FFFF00"
+    }
 
-            # Apply color
-            fill_color = colors.get(fraud_category, None)
-            if fill_color:
-                for col_idx in range(1, ws.max_column + 1):  # Loop through all columns in the row
-                    ws.cell(row=row_idx, column=col_idx).fill = PatternFill(start_color=fill_color,
-                                                                            end_color=fill_color, fill_type="solid")
+    # Populate fraud results
+    for row_idx, result in enumerate(fraud_results, start=metadata_end_row + 1):
+        ws.cell(row=row_idx, column=1, value=result.get("Description", "N/A"))
+        ws.cell(row=row_idx, column=2, value=result.get("Invoice Cost", "N/A"))
+        ws.cell(row=row_idx, column=3, value=result.get("Base Cost", "N/A"))
+        ws.cell(row=row_idx, column=4, value=result.get("Price Difference", "N/A"))
+        fraud_category = result.get("Fraud Category", "Unknown")
+        ws.cell(row=row_idx, column=5, value=fraud_category)
 
-        # Save workbook
-        file_path = "fraud_report_with_metadata_and_categories.xlsx"
-        wb.save(file_path)
-        print(f"Fraud detection report saved successfully as '{file_path}'!")
+        # Apply color
+        fill_color = colors.get(fraud_category, None)
+        if fill_color:
+            for col_idx in range(1, ws.max_column + 1):  # Loop through all columns in the row
+                ws.cell(row=row_idx, column=col_idx).fill = PatternFill(start_color=fill_color,
+                                                                        end_color=fill_color, fill_type="solid")
 
-        return file_path
+    # Save workbook
+    report_file_path = "fraud_report_with_metadata_and_categories.xlsx"
+    wb.save(report_file_path)
+    print(f"Fraud detection report saved successfully as '{report_file_path}'!")
 
+    # Save as JSON
+    combined_report = {
+        "Metadata": metadata,
+        "Fraud Detection Results": fraud_results,
+    }
+    json_file_path = "fraud_report_with_metadata_and_categories.json"
+    with open(json_file_path, "w") as json_file:
+        json.dump(combined_report, json_file, indent=4)
+    print(f"Fraud detection report saved successfully as '{json_file_path}'!")
+
+    return report_file_path, json_file_path
+
+
+def save_report(metadata, fraud_results, json_file="combined_report.json"):
+    # Combine Metadata and Fraud Results
+    combined_report = {
+        "Metadata": metadata,
+        "Fraud Detection Results": fraud_results,
+    }
+
+    # Save as JSON
+    with open(json_file, "w") as json_out:
+        json.dump(combined_report, json_out, indent=4)
+    print(f"Report saved successfully as {json_file}")
 
 pdf_file_path = upload_file()
 invoice_text = extract_text_from_pdf(pdf_file_path)
 invoice_items = extract_invoice_items(invoice_text)
-fraud_results = compare_invoice_with_base(invoice_items, base_data)
+fraud_results = compare_invoice_with_base(invoice_items, base_data, medication_data)
 process_invoice(pdf_file_path)
