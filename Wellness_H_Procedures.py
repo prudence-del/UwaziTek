@@ -5,9 +5,8 @@ import tkinter as tk
 from tkinter import filedialog
 from datetime import datetime, timedelta
 import re
-from openpyxl.reader.excel import load_workbook
+from openpyxl.workbook import Workbook
 from openpyxl.styles import PatternFill
-
 
 #%% Base data setup
 # loading data with services offered in the hospital and their cost
@@ -17,7 +16,6 @@ Base_data = pd.read_csv(file_path)
 print(Base_data.head(5))
 # detailed info about the data
 print(Base_data.info())
-
 
 #%% data cleaning
 # dropping unnecessary columns
@@ -53,6 +51,7 @@ def upload_file():
     file_path = filedialog.askopenfilename(title="Select invoice")
     return file_path
 
+
 # Function to clean up invoice text
 def clean_text(text):
     # Remove extra spaces, newlines, or unwanted characters
@@ -71,7 +70,7 @@ def extract_text_from_pdf(pdf_invoice_path):
         # Open the PDF with pdfplumber
         with pdfplumber.open(pdf_invoice_path) as pdf:
             # Extract text from all pages of the PDF
-            invoice_text = "\n".join([page.extract_text() for page in pdf.pages if page.extract_text()])
+            invoice_text = "\n".join([page.extract_text() or "" for page in pdf.pages if page.extract_text()])
 
             # Display the extracted text
             if invoice_text:
@@ -85,6 +84,7 @@ def extract_text_from_pdf(pdf_invoice_path):
     except Exception as e:
         print(f"Error extracting text from PDF: {e}")
         return ""
+
 
 # fitz is a module in the library (PyMuPDF)
 # fitz modifies a pdf file: extract images and text from a pdf
@@ -109,39 +109,58 @@ def check_watermark(pdf_file_path):
         print(f"Error checking watermark: {e}")
         return False
 
+
 #%%  validation of the invoices
 # check before the fraud test
 # mandatory fields
 def check_mandatory_fields(invoice_text):
     reasons = []
-    required_fields = {
-        "Invoice No": r"Invoice No:\s*([A-Za-z0-9]+)",
-        "Policy Number": r"[Pp]olicy\s*[Nn]umber:\s*([\w\-]+)",
-        "Bill to": r"Bill to:\s*(.*)",
-        "Patient Name": r"Patient Name:\s*(.*)",
-        "Date": r"Date:\s*(\d{1,2}\s\w+,\s\d{4})"
+    mandatory_fields = ['policy Number', 'Patient Name', 'Invoice No', 'Date', 'Bill to', 'Bank Name', 'Bank Account']
+    metadata = {}
+    patterns = {
+        'policy Number': r'policy Number:\s*(\S+)',
+        'Patient Name': r'Patient Name:\s*([\w\s]+)',
+        'Invoice No': r'Invoice No:\s*([\w\d]+)',
+        'Date': r'Date:\s*([\w\s,]+)',
+        'Bank Name': r'Bank Name:\s*([\w\s,]+)',
+        'Bill to': r'Bill to:\s*([\w\s]+)',
+        'Bank Account': r'Bank Account:\s*(\d{4}\s\d{4}\s\d{4})'
+
     }
-    for field, pattern in required_fields.items():
-        match = re.search(pattern, invoice_text, re.IGNORECASE)
-        if not match:
-            reasons.append(f"Missing field: {field}")
-        elif field == "Date":
-            try:
-                invoice_date = datetime.strptime(match.group(1), "%d %B, %Y")  # day month,year format
-                print(f"Extracted Invoice Date: {invoice_date}")
-                if invoice_date > datetime.now():
-                    reasons.append("Invoice date cannot be in the future")
-                    break
-                three_months_ago = datetime.now() - timedelta(days=90)  # invoice should not be more than 3 months old
-                if invoice_date < three_months_ago:
-                    reasons.append("Invoice date is older than 3 months")
-            except ValueError:
-                reasons.append("Invalid date format (expected format: 'DD Month, YYYY')")
-    return reasons
+
+    for field in mandatory_fields:
+        pattern = patterns.get(field, None)
+        if pattern:
+            match = re.search(pattern, invoice_text)
+            if match:
+                metadata[field] = match.group(1)
+            else:
+                print(f"Warning: No match found for field: {field}")
+                metadata[field] = None  # Or handle as required
+        else:
+            print(f"No pattern defined for field: {field}")
+
+            if field == "Date":
+                try:
+                    invoice_date = datetime.strptime(match.group(1), "%d %B, %Y")
+                    if invoice_date > datetime.now():
+                        reasons.append("Invoice date cannot be in the future")
+                    three_months_ago = datetime.now() - timedelta(days=90)
+                    if invoice_date < three_months_ago:
+                        reasons.append("Invoice date is older than 3 months")
+                except ValueError:
+                    reasons.append("Invalid date format (expected format: 'DD Month, YYYY')")
+
+    # Ensure 'Hospital Name' is added to metadata if not present
+    if "Hospital Name" not in metadata:
+        metadata["Hospital Name"] = "Wellness Hospital"
+
+    return metadata, reasons
 
 
 def extract_invoice_items(invoice_text):
-    item_pattern = r"\d+\.\s+([\w\s]+)\s+\$([\d,]+(?:\.\d{1,2})?)"
+    item_pattern = item_pattern = r"\d+\.\s+([A-Za-z0-9\s\(\)\-]+)\s+\$([\d,]+(?:\.\d{1,2})?)"
+
     items = []
     matches = re.findall(item_pattern, invoice_text)
     for match in matches:
@@ -149,8 +168,8 @@ def extract_invoice_items(invoice_text):
         amount = float(match[1].replace(',', ''))
         items.append({'DESCRIPTION': description, 'AMOUNT': amount})
     items_df = pd.DataFrame(items)
-    print("Extracted Invoice Items:")
-    print(items_df)
+    print("Extracted Invoice Items:\n", items_df)
+
     return items_df
 
 
@@ -168,21 +187,21 @@ def process_invoice(pdf_file_path):
         return  # Exit if no text is found
 
     print("Checking for mandatory fields...")
-    mandatory_reasons = check_mandatory_fields(invoice_text)
+    metadata, mandatory_reasons = check_mandatory_fields(invoice_text)
     if mandatory_reasons:
         print("Mandatory field validation failed. Reasons:")
         for reason in mandatory_reasons:
             print(reason)
         return  # Exit if any mandatory field is missing or invalid
 
+    print(f"Extracted Metadata: {metadata}")
+
     # Only proceed with fraud detection if all checks are passed
     print("Invoice validated successfully. Proceeding with fraud detection...")
-    invoice_items = extract_invoice_items(invoice_text)
-    fraud_results = compare_invoice_with_base(invoice_items, base_data)
 
     # Generate fraud detection report if checks are passed and fraud results are available
-    if not fraud_results.empty:
-        generate_fraud_report(fraud_results)
+    if len(fraud_results) > 0:
+        generate_combined_report(fraud_results, metadata)
     else:
         print("No fraud results to report. Skipping report generation.")
 
@@ -190,12 +209,13 @@ def process_invoice(pdf_file_path):
 # data after cleaning
 base_data = pd.read_excel("Base_data_report.xlsx")
 
+
 # for normalizing text to ensure consistence in formating
 def normalize_description(desc):
     return re.sub(r"\s+", " ", desc.lower().strip())
 
 
-base_data['DESCRIPTION'] = base_data['Services provided at Wellness Hospital'].apply(normalize_description)
+base_data['Normalized DESCRIPTION'] = base_data['Services provided at Wellness Hospital'].apply(normalize_description)
 
 
 #%% comparison of the invoice items and their prices with that of the base cost
@@ -203,18 +223,32 @@ base_data['DESCRIPTION'] = base_data['Services provided at Wellness Hospital'].a
 # different colors depending on the extent of fraud.
 
 def compare_invoice_with_base(invoice_items, hospital_base_data):
-    fraud_detection_results = []
+    if 'Normalized DESCRIPTION' not in hospital_base_data.columns:
+        hospital_base_data['Normalized DESCRIPTION'] = hospital_base_data['DESCRIPTION'].apply(normalize_description)
+
+    comparison_results = []
+    unmatched_items = []
+    # Calculate total invoice amount
+    total_invoice_amount = invoice_items['AMOUNT'].sum()
 
     for _, item in invoice_items.iterrows():
         description = normalize_description(item['DESCRIPTION'])
         invoice_cost = item['AMOUNT']
 
-        # Locate the base cost row in the hospital data
-        base_row = hospital_base_data[hospital_base_data['DESCRIPTION'] == description]
+        # Locate the base cost row in the hospital data with normalized description
+        base_row = hospital_base_data[hospital_base_data['Normalized DESCRIPTION'] == description]
+
+        if base_row.empty:
+            # Attempt partial matching for descriptions not found in base data
+            partial_match = hospital_base_data[
+                hospital_base_data['Normalized DESCRIPTION'].str.contains(description.split()[0], na=False)]
+            if not partial_match.empty:
+                base_row = partial_match.iloc[[0]]  # Pick the first partial match
 
         if base_row.empty:
             # If service is not found in the base data
-            fraud_detection_results.append({
+            unmatched_items.append(description)
+            comparison_results.append({
                 'Description': item['DESCRIPTION'],
                 'Invoice Cost': invoice_cost,
                 'Base Cost': None,
@@ -225,11 +259,9 @@ def compare_invoice_with_base(invoice_items, hospital_base_data):
             # Base cost retrieved
             hospital_base_cost = float(base_row['BASE_COST'].values[0])
             price_difference = invoice_cost - hospital_base_cost
+            price_difference = round(price_difference, 2)  # 2 decimal places
 
             # Determine fraud category based on the price difference
-            # invoice cost == or greater than base cost by 100 then green
-            # invoice cost more than base cost by 3000 then risk
-            # more than that is fraud
             if invoice_cost == hospital_base_cost or (
                     invoice_cost > hospital_base_cost and (invoice_cost - hospital_base_cost) <= 100):
                 fraud_category = "Legitimate"
@@ -240,7 +272,7 @@ def compare_invoice_with_base(invoice_items, hospital_base_data):
                 fraud_category = "Potential Underreporting"
 
             # Append result with the new price difference column
-            fraud_detection_results.append({
+            comparison_results.append({
                 'Description': item['DESCRIPTION'],
                 'Invoice Cost': invoice_cost,
                 'Base Cost': hospital_base_cost,
@@ -248,45 +280,108 @@ def compare_invoice_with_base(invoice_items, hospital_base_data):
                 'Fraud Category': fraud_category
             })
 
-    return pd.DataFrame(fraud_detection_results)
-
-    # Updated function to generate the fraud detection report
-    # Updated function to generate the fraud detection report
-
-
-#%% generation of an Excel report
-# each item is highlighted and color-coded categorized
-def generate_fraud_report(fraud_detection_results):
-    # Save the report to an Excel file
-    report_file = "Fraud_Detection_Report.xlsx"
-    fraud_detection_results.to_excel(report_file, index=False)
-
-    # Load the workbook and select the active sheet
-    workbook = load_workbook(report_file)
-    sheet = workbook.active
-
-    # Define colors for each fraud category
-    colors = {
-        "Legitimate": "00FF00",  # Green
-        "Risk": "FFA500",  # Orange
-        "Fraud": "FF0000",  # Red
-        "Service not found in base data": "FF FF00"  # Yellow for unmatched services
+    # Add summary row for total invoice amount after the loop
+    total_row = {
+        'Description': 'Total Invoice Amount',
+        'Invoice Cost': total_invoice_amount,
+        'Base Cost': None,
+        'Price Difference': None,
+        'Fraud Category': None
     }
 
-    # Apply color to each row based on fraud category
-    for row in range(2, sheet.max_row + 1):  # Skip the header row
-        fraud_category = sheet.cell(row=row, column=5).value  # 5th column (E)
-        fill_color = colors.get(fraud_category, "FFFFFF")  # Default to white if no match
-        fill = PatternFill(start_color=fill_color, end_color=fill_color, fill_type="solid")
+    comparison_results.append(total_row)  # Add total row only once after processing all items
 
-        # Apply fill color to all columns in the row
-        for col in range(1, sheet.max_column + 1):
-            sheet.cell(row=row, column=col).fill = fill
+    # If unmatched items exist, print them
+    if unmatched_items:
+        print("Unmatched invoice items (descriptions not found in base data):")
+        for item in unmatched_items:
+            print(f"- {item}")
 
-    # Save the workbook with color formatting
-    workbook.save(report_file)
-    print(f"Fraud report saved as {report_file} with color-coded categories.")
-    return report_file
+    return comparison_results
+
+    #%% generation of an Excel report
+    # each item is highlighted and color-coded categorized
+def generate_combined_report(fraud_results, metadata):
+
+        """
+        Generates a fraud detection report with metadata and fraud categories.
+
+        Parameters:
+            fraud_results (list): A list of dictionaries with fraud detection details.
+            metadata (dict): A dictionary containing metadata about the invoice.
+        """
+
+        # Clean metadata
+        metadata = {key: value.replace("\n", " ") if isinstance(value, str) else value for key, value in
+                    metadata.items()}
+
+        # Validate and clean fraud_results
+        if not isinstance(fraud_results, list):
+            print("Fraud results are not in a list format.")
+            return
+        fraud_results = [result for result in fraud_results if isinstance(result, dict)]
+
+        # Check for valid data
+        if not fraud_results:
+            print("No valid fraud detection results to process.")
+            return
+
+        # Create Excel workbook
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "Fraud Detection Report"
+
+        # Add metadata
+        metadata_start_row = 1
+        metadata_fields = [
+            ("Hospital Name", metadata.get("Hospital Name", "N/A")),
+            ("Bank Name", metadata.get("Bank Name", "N/A")),
+            ("Bank Account", metadata.get("Bank Account", "N/A")),
+            ("Patient Name", metadata.get("Patient Name", "N/A")),
+            ("Policy Number", metadata.get("policy Number", "N/A")),
+            ("Invoice Number", metadata.get("Invoice No", "N/A")),
+        ]
+
+        for idx, (label, value) in enumerate(metadata_fields):
+            ws[f"A{metadata_start_row + idx}"] = f"{label}:"
+            ws[f"B{metadata_start_row + idx}"] = value
+
+        # Add fraud results
+        metadata_end_row = metadata_start_row + len(metadata_fields) + 1
+        headers = ["Description", "Invoice Cost", "Base Cost", "Price Difference", "Fraud Category"]
+        for col_idx, header in enumerate(headers, start=1):
+            ws.cell(row=metadata_end_row, column=col_idx, value=header)
+
+        # Define color coding
+        colors = {
+            "Legitimate": "00FF00",
+            "Risk": "FFA500",
+            "Fraud": "FF0000",
+            "Service not found in base data": "FFFF00"
+        }
+
+        # Populate fraud results
+        for row_idx, result in enumerate(fraud_results, start=metadata_end_row + 1):
+            ws.cell(row=row_idx, column=1, value=result.get("Description", "N/A"))
+            ws.cell(row=row_idx, column=2, value=result.get("Invoice Cost", "N/A"))
+            ws.cell(row=row_idx, column=3, value=result.get("Base Cost", "N/A"))
+            ws.cell(row=row_idx, column=4, value=result.get("Price Difference", "N/A"))
+            fraud_category = result.get("Fraud Category", "Unknown")
+            ws.cell(row=row_idx, column=5, value=fraud_category)
+
+            # Apply color
+            fill_color = colors.get(fraud_category, None)
+            if fill_color:
+                for col_idx in range(1, ws.max_column + 1):  # Loop through all columns in the row
+                    ws.cell(row=row_idx, column=col_idx).fill = PatternFill(start_color=fill_color,
+                                                                            end_color=fill_color, fill_type="solid")
+
+        # Save workbook
+        file_path = "fraud_report_with_metadata_and_categories.xlsx"
+        wb.save(file_path)
+        print(f"Fraud detection report saved successfully as '{file_path}'!")
+
+        return file_path
 
 
 pdf_file_path = upload_file()
@@ -294,5 +389,3 @@ invoice_text = extract_text_from_pdf(pdf_file_path)
 invoice_items = extract_invoice_items(invoice_text)
 fraud_results = compare_invoice_with_base(invoice_items, base_data)
 process_invoice(pdf_file_path)
-
-
