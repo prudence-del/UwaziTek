@@ -1,1 +1,70 @@
-{"metadata": [["Hospital Name", "Wellness Hospital"], ["Bank Name", "Absa Bank\nBank Account"], ["Bank Account", "0123 4567 8901"], ["Patient Name", "Juma Joseph\nInvoice No"], ["Policy Number", "12345-ABP-001"], ["Invoice Number", "WHJ7UI9O00PLQ"]], "fraud_results": [{"Description": "Chlamydia antigen test", "Invoice Cost": 4433.1, "Base Cost": 3451.2, "Price Difference": 981.9, "Fraud Category": "Risk"}, {"Description": "Allergy screening test", "Invoice Cost": 500.0, "Base Cost": 431.4, "Price Difference": 68.6, "Fraud Category": "Legitimate"}, {"Description": "Intramuscular injection", "Invoice Cost": 5500.0, "Base Cost": 4433.1, "Price Difference": 1066.9, "Fraud Category": "Risk"}, {"Description": "Colonoscopy", "Invoice Cost": 20500.0, "Base Cost": 20211.6, "Price Difference": 288.4, "Fraud Category": "Risk"}, {"Description": "Standard pregnancy test", "Invoice Cost": 5700.0, "Base Cost": 6643.8, "Price Difference": -943.8, "Fraud Category": "Potential Underreporting"}, {"Description": "Prostatectomy", "Invoice Cost": 10500.0, "Base Cost": 3515.91, "Price Difference": 6984.09, "Fraud Category": "Fraud"}, {"Description": "seasonique 91 day pack", "Invoice Cost": 500.0, "Base Cost": 431.4, "Price Difference": 68.6, "Fraud Category": "Legitimate"}, {"Description": "Total Invoice Amount", "Invoice Cost": 47633.1, "Base Cost": null, "Price Difference": null, "Fraud Category": null}]}
+{
+    "Metadata": {
+        "policy Number": "12345-ABP-001",
+        "Patient Name": "Juma Joseph Invoice No",
+        "Invoice No": "WHJ7UI9O00PLQ",
+        "Date": "12 October, 2024 Bill to",
+        "Bill to": "Britam Insurance UpperHill",
+        "Bank Name": "Absa Bank Bank Account",
+        "Bank Account": "0123 4567 8901",
+        "Hospital Name": "Wellness Hospital"
+    },
+    "Fraud Detection Results": [
+        {
+            "Description": "Chlamydia antigen test",
+            "Invoice Cost": 4433.1,
+            "Base Cost": 2159.75,
+            "Price Difference": 2273.35,
+            "Fraud Category": "Risk"
+        },
+        {
+            "Description": "Allergy screening test",
+            "Invoice Cost": 500.0,
+            "Base Cost": 431.4,
+            "Price Difference": 68.6,
+            "Fraud Category": "Legitimate"
+        },
+        {
+            "Description": "Intramuscular injection",
+            "Invoice Cost": 5500.0,
+            "Base Cost": 2544.08,
+            "Price Difference": 2955.92,
+            "Fraud Category": "Risk"
+        },
+        {
+            "Description": "Colonoscopy",
+            "Invoice Cost": 20500.0,
+            "Base Cost": 11731.22,
+            "Price Difference": 8768.78,
+            "Fraud Category": "Fraud"
+        },
+        {
+            "Description": "Standard pregnancy test",
+            "Invoice Cost": 5700.0,
+            "Base Cost": 5656.6,
+            "Price Difference": 43.4,
+            "Fraud Category": "Legitimate"
+        },
+        {
+            "Description": "Prostatectomy",
+            "Invoice Cost": 10500.0,
+            "Base Cost": 6142.64,
+            "Price Difference": 4357.36,
+            "Fraud Category": "Fraud"
+        },
+        {
+            "Description": "seasonique 91 day pack",
+            "Invoice Cost": 500.0,
+            "Base Cost": 431.4,
+            "Price Difference": 68.6,
+            "Fraud Category": "Legitimate"
+        },
+        {
+            "Description": "Total Invoice Amount",
+            "Invoice Cost": 47633.1,
+            "Base Cost": null,
+            "Price Difference": null,
+            "Fraud Category": null
+        }
+    ]
+}

@@ -12,8 +12,8 @@ import json
 
 #%% Base data setup
 # loading data with services offered in the hospital and their cost
-Procedure_file_path = 'E:/NJENGA/Downloads/synthea_sample_data_csv_latest/procedures.csv'
-Medication_file_path = 'E:/NJENGA/Downloads/synthea_sample_data_csv_latest/medications.csv'
+Procedure_file_path = 'synthea_sample_data_csv_latest/procedures.csv'
+Medication_file_path = 'synthea_sample_data_csv_latest/medications.csv'
 Base_data = pd.read_csv(Procedure_file_path)
 medication_data = pd.read_csv(Medication_file_path)
 # reading the first 5 rows of the data
@@ -205,7 +205,7 @@ def check_mandatory_fields(invoice_text):
 
 
 def extract_invoice_items(invoice_text):
-    item_pattern = item_pattern = r"\d+\.\s+((?:\([A-Za-z0-9\s]+\)\s+)?[A-Za-z0-9\s/]+(?:\(\d+\s+[A-Za-z]+\))?)\s+\$(\d+[\.,]?\d{1,2})"
+    item_pattern = item_pattern = r"\d+\.\s+((?:\([A-Za-z0-9\s]+\)\s+)?[A-Za-z0-9\s/]+(?:\(\d+\s+[A-Za-z]+\))?)\s+\$(\d+[\.,]?\d{1,2})(?:\s+\$\d+[\.,]?\d{1,2})*"
 
     items = []
     matches = re.findall(item_pattern, invoice_text)

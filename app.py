@@ -11,10 +11,13 @@ from fuzzywuzzy import process
 app = Flask(__name__)
 
 # Load base data (you may want to load it at the start of the app for efficiency)
-Procedure_file_path = 'E:/NJENGA/Downloads/synthea_sample_data_csv_latest/procedures.csv'
-Medication_file_path = 'E:/NJENGA/Downloads/synthea_sample_data_csv_latest/medications.csv'
+Procedure_file_path = 'synthea_sample_data_csv_latest/procedures.csv'
+Medication_file_path = 'synthea_sample_data_csv_latest/medications.csv'
 Base_data = pd.read_csv(Procedure_file_path)
 medication_data = pd.read_csv(Medication_file_path)
+
+print(os.path.exists('synthea_sample_data_csv_latest/procedures.csv'))
+print(os.path.exists('synthea_sample_data_csv_latest/medications.csv'))
 
 base_data = pd.read_excel("Base_data_report.xlsx")
 medication_data = pd.read_excel("medication_base_report.xlsx")
