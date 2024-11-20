@@ -18,6 +18,8 @@ medication_data = pd.read_csv(Medication_file_path)
 
 base_data = pd.read_excel("Base_data_report.xlsx")
 medication_data = pd.read_excel("medication_base_report.xlsx")
+
+
 # You can add your fraud detection functions here (from your long script above)
 def normalize_description(desc):
     return re.sub(r"\s+", " ", desc.lower().strip())
@@ -25,6 +27,8 @@ def normalize_description(desc):
 
 base_data['Normalized DESCRIPTION'] = base_data['Services provided at Wellness Hospital'].apply(normalize_description)
 medication_data['Normalized DESCRIPTION'] = medication_data['Wellness Medication'].apply(normalize_description)
+
+
 # Example of a fraud detection function to be added
 
 def compare_invoice_with_base(invoice_items, hospital_base_data, medication_base_data):
@@ -44,7 +48,6 @@ def compare_invoice_with_base(invoice_items, hospital_base_data, medication_base
 
     total_invoice_amount = invoice_items['AMOUNT'].sum()
     # Calculate total invoice amount
-
 
     for _, item in invoice_items.iterrows():
         description = normalize_description(item['DESCRIPTION'])
@@ -195,28 +198,50 @@ def extract_text_from_pdf(pdf_invoice_path):
 
 
 def check_mandatory_fields(invoice_text):
-    mandatory_fields = ["policy Number", "Patient Name", "Invoice No", "Date", "Bill to", "Bank Name",
-                        "Bank Account"]
+    mandatory_fields = ["policy Number", "Patient Name", "Invoice No", "Date", "Bill to", "Bank Name", "Bank Account"]
+
     missing_fields = []
 
-    # Logic to check if mandatory fields exist in the invoice_text
+    # Define patterns for extracting metadata
+    patterns = {
+        'Hospital Name': r'Hospital Name:\s*([\w\s]+)',
+        'policy Number': r'policy Number:\s*(\S+)',
+        'Patient Name': r'Patient Name:\s*([\w\s]+)',
+        'Invoice No': r'Invoice No:\s*([\w\d]+)',
+        'Date': r'Date:\s*([\w\s,]+)',
+        'Bank Name': r'Bank Name:\s*([\w\s,]+)',
+        'Bank Account': r'Bank Account:\s*(\d{4}\s\d{4}\s\d{4})'
+    }
+
+    # Extract metadata
+    metadata = {}
+    for field, pattern in patterns.items():
+        match = re.search(pattern, invoice_text)
+        metadata[field] = match.group(1) if match else "N/A"
+
+    # Check for missing mandatory fields
     for field in mandatory_fields:
         if field not in invoice_text:
             missing_fields.append(field)
 
+    # Ensure 'Hospital Name' has a default value if not found
+    if metadata["Hospital Name"] == "N/A":
+        metadata["Hospital Name"] = "Wellness Hospital"
+
     # Prepare metadata to return
-    metadata = {
-        "mandatory_fields_checked": mandatory_fields,
-        "missing_fields": missing_fields,
-        "invoice_length": len(invoice_text),
-        "invoice_preview": invoice_text[:200]  # Preview first 200 characters
-    }
+    metadata_fields = [
+        ("Hospital Name", metadata.get("Hospital Name", "N/A")),
+        ("Bank Name", metadata.get("Bank Name", "N/A")),
+        ("Bank Account", metadata.get("Bank Account", "N/A")),
+        ("Patient Name", metadata.get("Patient Name", "N/A")),
+        ("Policy Number", metadata.get("policy Number", "N/A")),
+        ("Invoice Number", metadata.get("Invoice No", "N/A")),
+    ]
 
     if missing_fields:
-        return metadata, missing_fields
+        return metadata_fields, missing_fields
     else:
-        return metadata, None
-
+        return metadata_fields, None
 
 
 def extract_invoice_items(invoice_text):
@@ -232,7 +257,6 @@ def extract_invoice_items(invoice_text):
     print("Extracted Invoice Items:\n", items_df)
 
     return items_df
-
 
 
 if __name__ == '__main__':
