@@ -160,19 +160,18 @@ def check_watermark(pdf_file_path):
 # mandatory fields
 def check_mandatory_fields(invoice_text):
     reasons = []
-    mandatory_fields = ['policy Number', 'Patient Name', 'Invoice No', 'Date', 'Bill to', 'Bank Name', 'Bank Account']
+    mandatory_fields = ['Policy Number', 'Patient Name', 'Invoice No', 'Date', 'Bill to', 'Bank Name', 'Bank Account']
     metadata = {}
     patterns = {
-        'policy Number': r'policy Number:\s*(\S+)',
+        'policy Number': r'Policy Number:\s*(\S+)',
         'Patient Name': r'Patient Name:\s*([\w\s]+)',
         'Invoice No': r'Invoice No:\s*([\w\d]+)',
         'Date': r'Date:\s*([\w\s,]+)',
-        'Bank Name': r'Bank Name:\s*([\w\s,]+)',
+        'Bank Name': r'Bank Name:\s*([\w\s,&]+)',
         'Bill to': r'Bill to:\s*([\w\s]+)',
         'Bank Account': r'Bank Account:\s*(\d{4}\s\d{4}\s\d{4})'
 
     }
-
 
     for field in mandatory_fields:
         pattern = patterns.get(field, None)
@@ -205,7 +204,7 @@ def check_mandatory_fields(invoice_text):
 
 
 def extract_invoice_items(invoice_text):
-    item_pattern = item_pattern = r"\d+\.\s+((?:\([A-Za-z0-9\s]+\)\s+)?[A-Za-z0-9\s/]+(?:\(\d+\s+[A-Za-z]+\))?)\s+\$(\d+[\.,]?\d{1,2})(?:\s+\$\d+[\.,]?\d{1,2})*"
+    item_pattern = item_pattern = r"\d+\.\s+((?:\([A-Za-z0-9\s&/-]+\)\s+)?[A-Za-z0-9\s&/()-]+(?:\(\w+\))?)\s+\$(\d+(?:[\.,]?\d{1,2})?)(?:\s+\$\d+(?:[\.,]?\d{1,2})?)*"
 
     items = []
     matches = re.findall(item_pattern, invoice_text)
@@ -274,7 +273,7 @@ def compare_invoice_with_base(invoice_items, hospital_base_data, medication_base
     # Normalize the DESCRIPTION column for both datasets if not already done
     if 'Normalized DESCRIPTION' not in hospital_base_data.columns:
         hospital_base_data['Normalized DESCRIPTION'] = (hospital_base_data['DESCRIPTION'].apply
-                (normalize_description))
+                                                        (normalize_description))
 
     if 'Normalized DESCRIPTION' not in medication_base_data.columns:
         medication_base_data['Normalized DESCRIPTION'] = medication_base_data['DESCRIPTION'].apply(
@@ -353,6 +352,18 @@ def compare_invoice_with_base(invoice_items, hospital_base_data, medication_base
             'Fraud Category': fraud_category
         })
 
+    fraud_categories = [result['Fraud Category'] for result in comparison_results if result['Fraud Category']]
+
+    if 'Fraud' in fraud_categories:
+        overall_status = 'Fraud'
+    elif fraud_categories.count('Risk') > 1:
+        overall_status = 'Risky'
+    elif all(category == 'Legitimate' for category in fraud_categories if
+             category != "Service not found in base data"):
+        overall_status = 'Legitimate'
+    else:
+        overall_status = 'Unknown'  # Fallback in case of unexpected data
+
     # Add summary row for total invoice amount after the loop
     total_row = {
         'Description': 'Total Invoice Amount',
@@ -362,7 +373,16 @@ def compare_invoice_with_base(invoice_items, hospital_base_data, medication_base
         'Fraud Category': None
     }
 
+    # Add overall status row
+    overall_status_row = {
+        'Description': 'Overall Status',
+        'Invoice Cost': None,
+        'Base Cost': None,
+        'Price Difference': None,
+        'Fraud Category': overall_status
+    }
     comparison_results.append(total_row)  # Add total row only once after processing all items
+    comparison_results.append(overall_status_row)
 
     # If unmatched items exist, print them
     if unmatched_items:
@@ -415,7 +435,6 @@ def generate_combined_report(fraud_results, metadata):
         ("Policy Number", metadata.get("policy Number", "N/A")),
         ("Invoice Number", metadata.get("Invoice No", "N/A")),
     ]
-
 
     for idx, (label, value) in enumerate(metadata_fields):
         ws[f"A{metadata_start_row + idx}"] = f"{label}:"
@@ -480,6 +499,7 @@ def save_report(metadata, fraud_results, json_file="combined_report.json"):
     with open(json_file, "w") as json_out:
         json.dump(combined_report, json_out, indent=4)
     print(f"Report saved successfully as {json_file}")
+
 
 pdf_file_path = upload_file()
 invoice_text = extract_text_from_pdf(pdf_file_path)

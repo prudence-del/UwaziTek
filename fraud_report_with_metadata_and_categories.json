@@ -1,6 +1,5 @@
 {
     "Metadata": {
-        "policy Number": "12345-ABP-001",
         "Patient Name": "Juma Joseph Invoice No",
         "Invoice No": "WHJ7UI9O00PLQ",
         "Date": "12 October, 2024 Bill to",
@@ -39,11 +38,32 @@
             "Fraud Category": "Fraud"
         },
         {
+            "Description": "Spirometry (procedure)",
+            "Invoice Cost": 15000.0,
+            "Base Cost": 7786.47,
+            "Price Difference": 7213.53,
+            "Fraud Category": "Fraud"
+        },
+        {
             "Description": "Standard pregnancy test",
             "Invoice Cost": 5700.0,
             "Base Cost": 5656.6,
             "Price Difference": 43.4,
             "Fraud Category": "Legitimate"
+        },
+        {
+            "Description": "Throat culture (procedure)",
+            "Invoice Cost": 2300.0,
+            "Base Cost": 2020.43,
+            "Price Difference": 279.57,
+            "Fraud Category": "Risk"
+        },
+        {
+            "Description": "Upper arm X-ray",
+            "Invoice Cost": 1500.0,
+            "Base Cost": 431.4,
+            "Price Difference": 1068.6,
+            "Fraud Category": "Risk"
         },
         {
             "Description": "Prostatectomy",
@@ -61,10 +81,17 @@
         },
         {
             "Description": "Total Invoice Amount",
-            "Invoice Cost": 47633.1,
+            "Invoice Cost": 66433.1,
             "Base Cost": null,
             "Price Difference": null,
             "Fraud Category": null
+        },
+        {
+            "Description": "Overall Status",
+            "Invoice Cost": null,
+            "Base Cost": null,
+            "Price Difference": null,
+            "Fraud Category": "Fraud"
         }
     ]
 }

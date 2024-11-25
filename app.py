@@ -10,6 +10,10 @@ from fuzzywuzzy import process
 
 app = Flask(__name__)
 
+@app.route('/')
+def home():
+    return "Welcome to the Fraud Detection API!"
+
 # Load base data (you may want to load it at the start of the app for efficiency)
 Procedure_file_path = 'synthea_sample_data_csv_latest/procedures.csv'
 Medication_file_path = 'synthea_sample_data_csv_latest/medications.csv'
@@ -263,4 +267,6 @@ def extract_invoice_items(invoice_text):
 
 
 if __name__ == '__main__':
-    app.run(host="127.0.0.1", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=8000, debug=True)
+
+
