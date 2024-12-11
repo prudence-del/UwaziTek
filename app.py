@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_file
 import os  # access file directory
 import json
 import pandas as pd
@@ -143,47 +143,6 @@ def compare_invoice_with_base(invoice_items, hospital_base_data, medication_base
 
     return comparison_results
 
-def save_to_json(metadata, items, filename="invoice_data.json"):
-    data = {
-        "metadata": metadata,
-        "items": items.to_dict(orient="records")  # Convert DataFrame to list of dictionaries
-    }
-    try:
-        with open(filename, "w") as json_file:
-            json.dump(data, json_file, indent=4)
-            print(f"Data successfully saved to {filename}")
-        return {"message": f"Data successfully saved to {filename}"}, 200
-    except Exception as e:
-        print(f"Error saving data to JSON: {e}")
-        return {"error": str(e)}, 500
-
-
-@app.route('/save-invoice-data', methods=['POST'])
-def save_invoice_data():
-    try:
-        # Parse JSON payload from request
-        data = request.get_json()
-
-        # Ensure 'metadata' and 'items' fields are present
-        metadata = data.get("metadata")
-        items = data.get("items")
-
-        if not metadata or not items:
-            return jsonify({"error": "Both 'metadata' and 'items' fields are required."}), 400
-
-        # Convert items to a DataFrame
-        items_df = pd.DataFrame(items)
-
-        # Optional: Allow a custom filename via the request
-        filename = data.get("filename", "invoice_data.json")
-
-        # Call the save_to_json function
-        response, status_code = save_to_json(metadata, items_df, filename)
-
-        return jsonify(response), status_code
-
-    except Exception as e:
-        return jsonify({"error": f"An unexpected error occurred: {str(e)}"}), 500
 
 @app.route('/generate-report', methods=['GET'])
 def generate_report():
@@ -291,6 +250,24 @@ def check_mandatory_fields(invoice_text):
     else:
         return metadata_fields, None
 
+
+# Flask route to serve the JSON file
+@app.route('/api/invoice', methods=['GET'])
+def get_invoice_data():
+    try:
+        with open("invoice_data.json", "r") as json_file:
+            data = json.load(json_file)
+        return jsonify(data)  # Serve JSON content directly
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# Optional: Serve the raw file for download
+@app.route('/api/download_invoice', methods=['GET'])
+def download_invoice():
+    try:
+        return send_file("invoice_data.json", as_attachment=True)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 def extract_invoice_items(invoice_text):
     item_pattern = r"\d+\.\s+((?:\([A-Za-z0-9\s]+\)\s+)?[A-Za-z0-9\s/]+(?:\(\d+\s+[A-Za-z]+\))?)\s+\$(\d+[\.,]?\d{1,2})"

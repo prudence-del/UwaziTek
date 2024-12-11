@@ -233,6 +233,9 @@ def save_to_json(metadata, items, filename="invoice_data.json"):
 
 
 
+
+
+
 # Process invoice for fraud detection
 def process_invoice(pdf_file_path):
     print("Checking for watermark...")
