@@ -63,9 +63,9 @@ initial_rows = len(medication_data)
 
 # remaining rows after duplicates dropped
 final_rows = medication_data.drop_duplicates(subset=['DESCRIPTION', 'BASE_COST'], keep='first')
-final_rows = final_rows.shape[0]
+final_rows = final_rows.shape[0]  # number of rows
 
-# remaining rows
+# duplicate rows
 dropped_rows = initial_rows - final_rows
 print(f"dropped duplicates rows: {dropped_rows}")
 
@@ -91,8 +91,8 @@ print(f"report saved successfully: {report_file_name}")
 #%% Invoice upload, text extract, image extract, convert text to data frame
 # invoice upload
 def upload_file():
-    root = tk.Tk()
-    root.withdraw()
+    root = tk.Tk()  # initializes the root window
+    root.withdraw()  # pop-up only of the dialog box
     invoice_file_path = filedialog.askopenfilename(title="Select invoice")
     return invoice_file_path
 
@@ -141,7 +141,7 @@ def check_watermark(pdf_file_path):
                 page = pdf_document.load_page(page_num)
                 image_list = page.get_images(full=True)
                 for i, img in enumerate(image_list):
-                    xref = img[0]
+                    xref = img[0]  # reference number of image in the pdf
                     base_image = pdf_document.extract_image(xref)
                     image_bytes = base_image["image"]
                     image_path = f"watermark_page{page_num + 1}_img{i + 1}.png"
@@ -187,7 +187,7 @@ def check_mandatory_fields(invoice_text):
 
             if field == "Date":
                 try:
-                    invoice_date = datetime.strptime(match.group(1), "%d %B, %Y")
+                    invoice_date = datetime.strptime(match.group(1), "%d %B, %Y")  # day month, year
                     if invoice_date > datetime.now():
                         reasons.append("Invoice date cannot be in the future")
                     three_months_ago = datetime.now() - timedelta(days=90)
@@ -217,6 +217,21 @@ def extract_invoice_items(invoice_text):
 
     return items_df
 
+# json file of the invoice items that will be fetched by users for services confirmations
+def save_to_json(metadata, items, filename="invoice_data.json"):
+    data = {
+        "metadata": metadata,
+        "items": items.to_dict(orient="records")  # Convert DataFrame to list of dictionaries
+    }
+    try:
+        with open(filename, "w") as json_file:
+            json.dump(data, json_file, indent=4)
+            print(f"Data successfully saved to {filename}")
+    except Exception as e:
+        print(f"Error saving data to JSON: {e}")
+
+
+
 
 # Process invoice for fraud detection
 def process_invoice(pdf_file_path):
@@ -240,6 +255,28 @@ def process_invoice(pdf_file_path):
         return  # Exit if any mandatory field is missing or invalid
 
     print(f"Extracted Metadata: {metadata}")
+
+    # Save the extracted invoice data to a JSON file before continuing with fraud detection
+    # Extract the invoice items (descriptions and amounts)
+    items_df = extract_invoice_items(invoice_text)
+
+    # Create the invoice data structure to save
+    invoice_data = {
+        'metadata': metadata,
+        'items': items_df.to_dict(orient='records')  # Convert items DataFrame to list of dictionaries
+    }
+
+    # Define the path where you want to save the JSON file
+    json_file_path = "invoice_data.json"
+
+    try:
+        # Save the data to the JSON file
+        with open(json_file_path, 'w') as json_file:
+            json.dump(invoice_data, json_file, indent=4)
+        print(f"Invoice data saved as {json_file_path}")
+    except Exception as e:
+        print(f"Error saving invoice data: {e}")
+        return  # Exit if unable to save the data
 
     # Only proceed with fraud detection if all checks are passed
     print("Invoice validated successfully. Proceeding with fraud detection...")
@@ -289,7 +326,7 @@ def compare_invoice_with_base(invoice_items, hospital_base_data, medication_base
         invoice_cost = item['AMOUNT']
 
         # Check if the item is a medication or a procedure
-        if 'medication' in description.lower():  # You can refine this check
+        if 'medication' in description.lower():
             base_data = medication_base_data
             is_medication = True
         else:
@@ -364,7 +401,7 @@ def compare_invoice_with_base(invoice_items, hospital_base_data, medication_base
     else:
         overall_status = 'Unknown'  # Fallback in case of unexpected data
 
-    # Add summary row for total invoice amount after the loop
+    # summary row for total invoice amount after the loop
     total_row = {
         'Description': 'Total Invoice Amount',
         'Invoice Cost': total_invoice_amount,
@@ -373,7 +410,7 @@ def compare_invoice_with_base(invoice_items, hospital_base_data, medication_base
         'Fraud Category': None
     }
 
-    # Add overall status row
+    # overall status row
     overall_status_row = {
         'Description': 'Overall Status',
         'Invoice Cost': None,
@@ -448,10 +485,10 @@ def generate_combined_report(fraud_results, metadata):
 
     # Define color coding
     colors = {
-        "Legitimate": "00FF00",
-        "Risk": "FFA500",
-        "Fraud": "FF0000",
-        "Service not found in base data": "FFFF00"
+        "Legitimate": "00FF00",  # green
+        "Risk": "FFA500",   # orange
+        "Fraud": "FF0000",  # red
+        "Service not found in base data": "FFFF00"   # bright yellow
     }
 
     # Populate fraud results

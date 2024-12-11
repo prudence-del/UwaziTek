@@ -1,87 +1,52 @@
 {
     "Metadata": {
-        "Patient Name": "Juma Joseph Invoice No",
-        "Invoice No": "WHJ7UI9O00PLQ",
-        "Date": "12 October, 2024 Bill to",
-        "Bill to": "Britam Insurance UpperHill",
-        "Bank Name": "Absa Bank Bank Account",
-        "Bank Account": "0123 4567 8901",
+        "Patient Name": "Tobi Brown policy Number",
+        "Invoice No": "AHKJDGSH986K",
+        "Date": "1 November, 2024 Bill to",
+        "Bill to": "APA Insurance Njiru",
+        "Bank Name": "I&M Bank Bank Account",
+        "Bank Account": "0754 8532 0632",
         "Hospital Name": "Wellness Hospital"
     },
     "Fraud Detection Results": [
         {
-            "Description": "Chlamydia antigen test",
-            "Invoice Cost": 4433.1,
-            "Base Cost": 2159.75,
-            "Price Difference": 2273.35,
+            "Description": "Digital examination of rectum",
+            "Invoice Cost": 800.0,
+            "Base Cost": 694.18,
+            "Price Difference": 105.82,
             "Fraud Category": "Risk"
         },
         {
-            "Description": "Allergy screening test",
+            "Description": "Renal dialysis (procedure)",
+            "Invoice Cost": 1750.0,
+            "Base Cost": 928.42,
+            "Price Difference": 821.58,
+            "Fraud Category": "Risk"
+        },
+        {
+            "Description": "Urine screening test for",
+            "Invoice Cost": 2000.0,
+            "Base Cost": 1906.61,
+            "Price Difference": 93.39,
+            "Fraud Category": "Legitimate"
+        },
+        {
+            "Description": "cisplatin 50 mg injection",
             "Invoice Cost": 500.0,
-            "Base Cost": 431.4,
-            "Price Difference": 68.6,
-            "Fraud Category": "Legitimate"
+            "Base Cost": 1108.27,
+            "Price Difference": -608.27,
+            "Fraud Category": "Potential Underreporting"
         },
         {
-            "Description": "Intramuscular injection",
-            "Invoice Cost": 5500.0,
-            "Base Cost": 2544.08,
-            "Price Difference": 2955.92,
-            "Fraud Category": "Risk"
-        },
-        {
-            "Description": "Colonoscopy",
-            "Invoice Cost": 20500.0,
-            "Base Cost": 11731.22,
-            "Price Difference": 8768.78,
-            "Fraud Category": "Fraud"
-        },
-        {
-            "Description": "Spirometry (procedure)",
-            "Invoice Cost": 15000.0,
-            "Base Cost": 7786.47,
-            "Price Difference": 7213.53,
-            "Fraud Category": "Fraud"
-        },
-        {
-            "Description": "Standard pregnancy test",
-            "Invoice Cost": 5700.0,
-            "Base Cost": 5656.6,
-            "Price Difference": 43.4,
-            "Fraud Category": "Legitimate"
-        },
-        {
-            "Description": "Throat culture (procedure)",
-            "Invoice Cost": 2300.0,
-            "Base Cost": 2020.43,
-            "Price Difference": 279.57,
-            "Fraud Category": "Risk"
-        },
-        {
-            "Description": "Upper arm X-ray",
-            "Invoice Cost": 1500.0,
-            "Base Cost": 431.4,
-            "Price Difference": 1068.6,
-            "Fraud Category": "Risk"
-        },
-        {
-            "Description": "Prostatectomy",
-            "Invoice Cost": 10500.0,
-            "Base Cost": 6142.64,
-            "Price Difference": 4357.36,
-            "Fraud Category": "Fraud"
-        },
-        {
-            "Description": "seasonique 91 day pack",
-            "Invoice Cost": 500.0,
-            "Base Cost": 431.4,
-            "Price Difference": 68.6,
-            "Fraud Category": "Legitimate"
+            "Description": "albuterol 5 mg/ml inhalation",
+            "Invoice Cost": 100.0,
+            "Base Cost": 440.38,
+            "Price Difference": -340.38,
+            "Fraud Category": "Potential Underreporting"
         },
         {
             "Description": "Total Invoice Amount",
-            "Invoice Cost": 66433.1,
+            "Invoice Cost": 5150.0,
             "Base Cost": null,
             "Price Difference": null,
             "Fraud Category": null
@@ -91,7 +56,7 @@
             "Invoice Cost": null,
             "Base Cost": null,
             "Price Difference": null,
-            "Fraud Category": "Fraud"
+            "Fraud Category": "Risky"
         }
     ]
 }
