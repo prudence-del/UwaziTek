@@ -231,22 +231,34 @@ def save_to_json(metadata, items, filename="invoice_data.json"):
         print(f"Error saving data to JSON: {e}")
 
 
-
-
-
-
+# saving reasons as to why the invoices cannot be process/ fraud cannot be detected
+def save_reasons_to_json(reasons, filename="invoice_rejection_reasons.json"):
+    """
+    Save the reasons why the invoice cannot be processed into a JSON file.
+    """
+    data = {
+        "reasons": reasons
+    }
+    try:
+        with open(filename, "w") as json_file:
+            json.dump(data, json_file, indent=4)
+            print(f"Rejection reasons successfully saved to {filename}")
+    except Exception as e:
+        print(f"Error saving rejection reasons to JSON: {e}")
 
 # Process invoice for fraud detection
 def process_invoice(pdf_file_path):
     print("Checking for watermark...")
     if not check_watermark(pdf_file_path):
-        print("Watermark not detected. Invoice cannot be processed.")
+        rejection_reasons = ["Watermark not detected. Invoice cannot be processed."]
+        save_reasons_to_json(rejection_reasons)  # Save the reason to JSON
         return  # Exit if watermark is missing
 
     print("Extracting text from invoice...")
     invoice_text = extract_text_from_pdf(pdf_file_path)
     if not invoice_text:
-        print("No text found in the invoice.")
+        rejection_reasons = ["No text found in the invoice."]
+        save_reasons_to_json(rejection_reasons)  # Save the reason to JSON
         return  # Exit if no text is found
 
     print("Checking for mandatory fields...")
@@ -255,6 +267,7 @@ def process_invoice(pdf_file_path):
         print("Mandatory field validation failed. Reasons:")
         for reason in mandatory_reasons:
             print(reason)
+        save_reasons_to_json(mandatory_reasons)  # Save mandatory field failure reasons
         return  # Exit if any mandatory field is missing or invalid
 
     print(f"Extracted Metadata: {metadata}")
@@ -269,7 +282,7 @@ def process_invoice(pdf_file_path):
         'items': items_df.to_dict(orient='records')  # Convert items DataFrame to list of dictionaries
     }
 
-    # Define the path where you want to save the JSON file
+    #JSON file save path
     json_file_path = "invoice_data.json"
 
     try:

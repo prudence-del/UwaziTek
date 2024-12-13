@@ -251,7 +251,7 @@ def check_mandatory_fields(invoice_text):
         return metadata_fields, None
 
 
-# Flask route to serve the JSON file
+# GET services offered + user details to the user for confirmation
 @app.route('/api/invoice', methods=['GET'])
 def get_invoice_data():
     try:
@@ -261,13 +261,32 @@ def get_invoice_data():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
-# Optional: Serve the raw file for download
+
+# download confirmation report
 @app.route('/api/download_invoice', methods=['GET'])
 def download_invoice():
     try:
         return send_file("invoice_data.json", as_attachment=True)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+# fetch api of the reasons as to why the invoice can't e processed.
+@app.route('/api/rejection-reasons', methods=['GET'])
+def get_rejection_reasons():
+    """
+    Fetch and return the content of the invoice_rejection_reasons.json file.
+    """
+    file_path = "invoice_rejection_reasons.json"
+    if os.path.exists(file_path):
+        try:
+            with open(file_path, 'r') as file:
+                data = json.load(file)
+                return jsonify(data), 200  # Return JSON with HTTP 200 status
+        except Exception as e:
+            return jsonify({"error": f"Error reading the file: {str(e)}"}), 500
+    else:
+        return jsonify({"error": "Rejection reasons file not found."}), 404
 
 def extract_invoice_items(invoice_text):
     item_pattern = r"\d+\.\s+((?:\([A-Za-z0-9\s]+\)\s+)?[A-Za-z0-9\s/]+(?:\(\d+\s+[A-Za-z]+\))?)\s+\$(\d+[\.,]?\d{1,2})"
