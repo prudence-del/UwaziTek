@@ -1,52 +1,60 @@
 {
     "Metadata": {
-        "Patient Name": "Tobi Brown policy Number",
-        "Invoice No": "AHKJDGSH986K",
-        "Date": "1 November, 2024 Bill to",
-        "Bill to": "APA Insurance Njiru",
-        "Bank Name": "I&M Bank Bank Account",
-        "Bank Account": "0754 8532 0632",
+        "Serial number": "34567",
+        "Patient Name": "HARRY VICKSTAR Invoice Date",
+        "Invoice No": "WELLNESS-INV/2024356786",
+        "Invoice Date": "09 October, 2024",
+        "Bill to": "APA INSURANCE Bank Name",
+        "Bank Name": "Absa Bank Bank Account",
+        "Bank Account": "4562 7890 5678",
         "Hospital Name": "Wellness Hospital"
     },
     "Fraud Detection Results": [
         {
-            "Description": "Digital examination of rectum",
-            "Invoice Cost": 800.0,
-            "Base Cost": 694.18,
-            "Price Difference": 105.82,
-            "Fraud Category": "Risk"
-        },
-        {
-            "Description": "Renal dialysis (procedure)",
-            "Invoice Cost": 1750.0,
-            "Base Cost": 928.42,
-            "Price Difference": 821.58,
-            "Fraud Category": "Risk"
-        },
-        {
-            "Description": "Urine screening test for",
-            "Invoice Cost": 2000.0,
-            "Base Cost": 1906.61,
-            "Price Difference": 93.39,
+            "Description": "Dental consultation and report",
+            "Invoice Cost": 450.0,
+            "Base Cost": 431.4,
+            "Price Difference": 18.6,
             "Fraud Category": "Legitimate"
         },
         {
-            "Description": "cisplatin 50 mg injection",
-            "Invoice Cost": 500.0,
-            "Base Cost": 1108.27,
-            "Price Difference": -608.27,
-            "Fraud Category": "Potential Underreporting"
+            "Description": "Dental care (regime/therapy)",
+            "Invoice Cost": 1500.0,
+            "Base Cost": 431.4,
+            "Price Difference": 1068.6,
+            "Fraud Category": "Fraud"
         },
         {
-            "Description": "albuterol 5 mg/ml inhalation",
-            "Invoice Cost": 100.0,
-            "Base Cost": 440.38,
-            "Price Difference": -340.38,
-            "Fraud Category": "Potential Underreporting"
+            "Description": "Dental X-ray bitewing (procedure)",
+            "Invoice Cost": 500.0,
+            "Base Cost": 431.4,
+            "Price Difference": 68.6,
+            "Fraud Category": "Legitimate"
+        },
+        {
+            "Description": "Dental fluoride treatment (procedure)",
+            "Invoice Cost": 800.0,
+            "Base Cost": 431.4,
+            "Price Difference": 368.6,
+            "Fraud Category": "Risk"
+        },
+        {
+            "Description": "astemizole 10 mg oral tablet",
+            "Invoice Cost": 300.0,
+            "Base Cost": 431.4,
+            "Price Difference": -131.4,
+            "Fraud Category": "Legitimate"
+        },
+        {
+            "Description": "camila 28 day pack",
+            "Invoice Cost": 770.0,
+            "Base Cost": 431.4,
+            "Price Difference": 338.6,
+            "Fraud Category": "Risk"
         },
         {
             "Description": "Total Invoice Amount",
-            "Invoice Cost": 5150.0,
+            "Invoice Cost": 4320.0,
             "Base Cost": null,
             "Price Difference": null,
             "Fraud Category": null
@@ -56,7 +64,7 @@
             "Invoice Cost": null,
             "Base Cost": null,
             "Price Difference": null,
-            "Fraud Category": "Risky"
+            "Fraud Category": "Fraud"
         }
     ]
 }

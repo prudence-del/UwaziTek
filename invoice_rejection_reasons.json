@@ -1,5 +1,6 @@
 {
     "reasons": [
-        "Watermark not detected. Invoice cannot be processed."
+        "Missing mandatory field: Invoice No",
+        "Invoice date is older than 3 months"
     ]
 }

@@ -3,7 +3,6 @@ import os  # access file directory
 import json
 import pandas as pd
 import pdfplumber
-import fitz  # PyMuPDF
 import re
 
 from fuzzywuzzy import process   # string matching and comparison
@@ -159,7 +158,7 @@ def generate_report():
         return jsonify({"error": str(e)}), 500
 
 
-@app.route('/process-invoice', methods=['POST'])
+@app.route('/upload-invoice', methods=['POST'])
 def process_invoice_request():
     invoice_file = request.files.get('invoice_file')  # If it's a PDF or image
     invoice_text = request.form.get('invoice_text')  # If it's raw text
@@ -205,7 +204,7 @@ def extract_text_from_pdf(pdf_invoice_path):
 
 
 def check_mandatory_fields(invoice_text):
-    mandatory_fields = ["policy Number", "Patient Name", "Invoice No", "Date", "Bill to", "Bank Name", "Bank Account"]
+    mandatory_fields = ["policy Number", "Patient Name", "Invoice No", "Invoice Date", "Bill to", "Bank Name", "Bank Account"]
 
     missing_fields = []
 
@@ -215,7 +214,7 @@ def check_mandatory_fields(invoice_text):
         'policy Number': r'policy Number:\s*(\S+)',
         'Patient Name': r'Patient Name:\s*([\w\s]+)',
         'Invoice No': r'Invoice No:\s*([\w\d]+)',
-        'Date': r'Date:\s*([\w\s,]+)',
+        'Invoice Date': r'Invoice Date:\s*([\w\s,]+)',
         'Bank Name': r'Bank Name:\s*([\w\s,]+)',
         'Bank Account': r'Bank Account:\s*(\d{4}\s\d{4}\s\d{4})'
     }
@@ -252,7 +251,7 @@ def check_mandatory_fields(invoice_text):
 
 
 # GET services offered + user details to the user for confirmation
-@app.route('/api/invoice', methods=['GET'])
+@app.route('/confirmation-report', methods=['GET'])
 def get_invoice_data():
     try:
         with open("invoice_data.json", "r") as json_file:
@@ -263,7 +262,7 @@ def get_invoice_data():
 
 
 # download confirmation report
-@app.route('/api/download_invoice', methods=['GET'])
+@app.route('/download_confirmation-report', methods=['GET'])
 def download_invoice():
     try:
         return send_file("invoice_data.json", as_attachment=True)
@@ -272,7 +271,7 @@ def download_invoice():
 
 
 # fetch api of the reasons as to why the invoice can't e processed.
-@app.route('/api/rejection-reasons', methods=['GET'])
+@app.route('/invoice-rejection-reasons', methods=['GET'])
 def get_rejection_reasons():
     """
     Fetch and return the content of the invoice_rejection_reasons.json file.

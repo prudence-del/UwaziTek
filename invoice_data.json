@@ -1,33 +1,44 @@
 {
     "metadata": {
-        "Patient Name": "Tobi Brown\npolicy Number",
-        "Invoice No": "AHKJDGSH986K",
-        "Date": "1 November, 2024\nBill to",
-        "Bill to": "APA Insurance\nNjiru",
-        "Bank Name": "I&M Bank\nBank Account",
-        "Bank Account": "0754 8532 0632",
+        "Serial number": "34567",
+        "Patient Name": "HARRY VICKSTAR\nInvoice Date",
+        "Invoice No": "WELLNESS-INV/2024356786",
+        "Invoice Date": "09 October, 2024",
+        "Bill to": "APA INSURANCE\nBank Name",
+        "Bank Name": "Absa Bank\nBank Account",
+        "Bank Account": "4562 7890 5678",
         "Hospital Name": "Wellness Hospital"
     },
     "items": [
         {
-            "DESCRIPTION": "Digital examination of rectum",
-            "AMOUNT": 800.0
+            "DATE": "01/10/2024",
+            "DESCRIPTION": "Dental consultation and report",
+            "AMOUNT": 450.0
         },
         {
-            "DESCRIPTION": "Renal dialysis (procedure)",
-            "AMOUNT": 1750.0
+            "DATE": "01/10/2024",
+            "DESCRIPTION": "Dental care (regime/therapy)",
+            "AMOUNT": 1500.0
         },
         {
-            "DESCRIPTION": "Urine screening test for",
-            "AMOUNT": 2000.0
-        },
-        {
-            "DESCRIPTION": "cisplatin 50 mg injection",
+            "DATE": "01/10/2024",
+            "DESCRIPTION": "Dental X-ray bitewing (procedure)",
             "AMOUNT": 500.0
         },
         {
-            "DESCRIPTION": "albuterol 5 mg/ml inhalation",
-            "AMOUNT": 100.0
+            "DATE": "01/10/2024",
+            "DESCRIPTION": "Dental fluoride treatment (procedure)",
+            "AMOUNT": 800.0
+        },
+        {
+            "DATE": "01/10/2024",
+            "DESCRIPTION": "astemizole 10 mg oral tablet",
+            "AMOUNT": 300.0
+        },
+        {
+            "DATE": "01/10/2024",
+            "DESCRIPTION": "camila 28 day pack",
+            "AMOUNT": 770.0
         }
     ]
 }
