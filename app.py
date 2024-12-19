@@ -217,7 +217,7 @@ def check_mandatory_fields(invoice_text):
         'Serial number': r'Serial\s+number:\s*#?(\d+)',
         'Hospital Name': r'Hospital Name:\s*([\w\s]+)',
         'Patient Name': r'Patient Name:\s*([\w\s]+)',
-        'Invoice No': r'Invoice No:\s*([\w\d]+)',
+        'Invoice No': r'Invoice\s*N0?:\s*(WELLNESS-INV/\d{10})',
         'Invoice Date': r'Invoice Date:\s*([\w\s,]+)',
         'Bank Name': r'Bank Name:\s*([\w\s,]+)',
         'Bank Account': r'Bank Account:\s*(\d{4}\s\d{4}\s\d{4})'
@@ -242,7 +242,7 @@ def check_mandatory_fields(invoice_text):
     metadata_fields = [
         ("Hospital Name", metadata.get("Hospital Name", "N/A")),
         ("Bank Name", metadata.get("Bank Name", "N/A")),
-        ("Bank Account", metadata.get("Bank Account", "N/A")),
+        ("Bank Account", metadata.get("Bank Accougnt", "N/A")),
         ("Patient Name", metadata.get("Patient Name", "N/A")),
         ("Invoice Number", metadata.get("Invoice No", "N/A")),
     ]
