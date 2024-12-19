@@ -1,17 +1,20 @@
 from flask import Flask, jsonify, request, send_file
 import os  # access file directory
 import json
+from flask_cors import CORS
 import pandas as pd
 import pdfplumber
 import re
 
-from fuzzywuzzy import process   # string matching and comparison
+from fuzzywuzzy import process  # string matching and comparison
 
 app = Flask(__name__)
+
 
 @app.route('/')
 def home():
     return "Welcome to the Fraud Detection API!"
+
 
 # Load base data
 Procedure_file_path = 'synthea_sample_data_csv_latest/procedures.csv'
@@ -204,14 +207,15 @@ def extract_text_from_pdf(pdf_invoice_path):
 
 
 def check_mandatory_fields(invoice_text):
-    mandatory_fields = ["policy Number", "Patient Name", "Invoice No", "Invoice Date", "Bill to", "Bank Name", "Bank Account"]
+    mandatory_fields = ["Serial number", "Patient Name", "Invoice No", "Invoice Date", "Bill to", "Bank Name",
+                        "Bank Account"]
 
     missing_fields = []
 
     # Define patterns for extracting metadata
     patterns = {
+        'Serial number': r'Serial\s+number:\s*#?(\d+)',
         'Hospital Name': r'Hospital Name:\s*([\w\s]+)',
-        'policy Number': r'policy Number:\s*(\S+)',
         'Patient Name': r'Patient Name:\s*([\w\s]+)',
         'Invoice No': r'Invoice No:\s*([\w\d]+)',
         'Invoice Date': r'Invoice Date:\s*([\w\s,]+)',
@@ -240,7 +244,6 @@ def check_mandatory_fields(invoice_text):
         ("Bank Name", metadata.get("Bank Name", "N/A")),
         ("Bank Account", metadata.get("Bank Account", "N/A")),
         ("Patient Name", metadata.get("Patient Name", "N/A")),
-        ("Policy Number", metadata.get("policy Number", "N/A")),
         ("Invoice Number", metadata.get("Invoice No", "N/A")),
     ]
 
@@ -287,6 +290,7 @@ def get_rejection_reasons():
     else:
         return jsonify({"error": "Rejection reasons file not found."}), 404
 
+
 def extract_invoice_items(invoice_text):
     item_pattern = r"\d+\.\s+((?:\([A-Za-z0-9\s]+\)\s+)?[A-Za-z0-9\s/]+(?:\(\d+\s+[A-Za-z]+\))?)\s+\$(\d+[\.,]?\d{1,2})"
 
@@ -302,7 +306,6 @@ def extract_invoice_items(invoice_text):
     return items_df
 
 
+CORS(app=app, resources={r"/api/*": {"origins": ["http://localhost:4200"]}})
 if __name__ == '__main__':
     app.run(host="0.0.0.0", port=8000, debug=True)
-
-
